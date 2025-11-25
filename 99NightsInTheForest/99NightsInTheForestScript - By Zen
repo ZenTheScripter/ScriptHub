@@ -1,0 +1,293 @@
+-- =============================================
+-- 99 NIGHTS SCRIPT
+-- Created by Zen / ZenTheScripter
+-- UI Library: WindUI 2025
+-- =============================================
+
+print("🚀 Loading 99 Nights Script by ZenTheScripter")
+
+-- Services
+local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local Lighting = game:GetService("Lighting")
+
+local Player = Players.LocalPlayer
+
+-- Load WindUI (officiel)
+local WindUI = loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"))()
+
+-- Create main window (nouvelle syntaxe)
+local Window = WindUI:CreateWindow({
+    Title = "99 Nights - ZenTheScripter",
+    Author = "ZenTheScripter",
+    ToggleKey = Enum.KeyCode.RightControl
+})
+
+-- =============================================
+-- VISUALS TAB - 99 Nights
+-- =============================================
+local VisualsTab = Window:Tab({ Title = "Visuals" })
+local SpawnerSection = VisualsTab:Section({ Title = "Item Spawner" })
+local AntiJumpscareSection = VisualsTab:Section({ Title = "Anti-Jumpscare" })
+
+getgenv().SelectedItem = nil
+
+-- Fonction pour récupérer noms uniques depuis Workspace.Items
+local function getUniqueItems()
+    local itemsFolder = Workspace:FindFirstChild("Items")
+    if not itemsFolder then return {} end
+
+    local uniqueNames = {}
+    local added = {}
+    for _, item in pairs(itemsFolder:GetChildren()) do
+        if not added[item.Name] then
+            table.insert(uniqueNames, item.Name)
+            added[item.Name] = true
+        end
+    end
+    table.sort(uniqueNames)
+    return uniqueNames
+end
+
+-- Fonction pour téléporter tous les objets avec le nom choisi devant toi
+local function teleportItems(itemName)
+    local itemsFolder = Workspace:FindFirstChild("Items")
+    local hrp = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
+    if not itemsFolder or not hrp then return 0 end
+
+    local count = 0
+    for _, item in pairs(itemsFolder:GetChildren()) do
+        if item.Name == itemName then
+            pcall(function()
+                local targetPos = hrp.Position + Vector3.new(0,5,0)
+                if item:IsA("Model") then
+                    if item.PrimaryPart then
+                        item:SetPrimaryPartCFrame(CFrame.new(targetPos))
+                    else
+                        for _, part in pairs(item:GetChildren()) do
+                            if part:IsA("BasePart") then
+                                part.Position = targetPos
+                                break
+                            end
+                        end
+                    end
+                elseif item:IsA("BasePart") then
+                    item.Position = targetPos
+                end
+                count = count + 1
+            end)
+        end
+    end
+    return count
+end
+
+-- Dropdown vide pour Item Spawner
+local dropdown = SpawnerSection:Dropdown({
+    Title = "Select Item",
+    Options = {},
+    Callback = function(selected)
+        getgenv().SelectedItem = selected
+    end
+})
+
+-- Remplir le dropdown au lancement
+dropdown:UpdateOptions(getUniqueItems())
+
+-- Bouton pour téléporter tous les items sélectionnés devant toi
+SpawnerSection:Button({
+    Title = "🧲 Teleport All Selected Items",
+    Callback = function()
+        if getgenv().SelectedItem then
+            local count = teleportItems(getgenv().SelectedItem)
+            Window:Notification("Teleport", "Teleported "..count.." "..getgenv().SelectedItem.." to you!")
+        else
+            Window:Notification("Error", "Select an item first!")
+        end
+    end
+})
+
+-- Bouton pour rafraîchir la liste des items
+SpawnerSection:Button({
+    Title = "🔄 Refresh Items List",
+    Callback = function()
+        local items = getUniqueItems()
+        dropdown:UpdateOptions(items)
+        Window:Notification("Refreshed", "Items list updated!")
+    end
+})
+
+-- =============================================
+-- Anti-Jumpscare
+-- =============================================
+AntiJumpscareSection:Button({
+    Title = "🛡️ Remove Jumpscares",
+    Callback = function()
+        local jumpscareFolder = ReplicatedStorage:FindFirstChild("Jumpscare")
+        if jumpscareFolder then
+            for _, objName in pairs({"JumpscareDeer","JumpscareOwl","JumpscareRam"}) do
+                local obj = jumpscareFolder:FindFirstChild(objName)
+                if obj then obj:Destroy() end
+            end
+            Window:Notification("Anti-Jumpscare", "All jumpscares removed!")
+        else
+            Window:Notification("Error", "Jumpscare folder not found!")
+        end
+    end
+})
+
+
+-- =============================================
+-- EXPLOITS TAB
+-- =============================================
+local ExploitsTab = Window:Tab({ Title = "Exploits" })
+
+-- God Mode Section
+local GodSection = ExploitsTab:Section({ Title = "God Mode" })
+GodSection:Toggle({
+    Title = "🛡️ Invincible (Animals & Damage)",
+    Default = false,
+    Callback = function(value)
+        if value then
+            local character = Player.Character
+            if character then
+                local humanoid = character:FindFirstChildOfClass("Humanoid")
+                if humanoid then
+                    humanoid.MaxHealth = math.huge
+                    humanoid.Health = math.huge
+
+                    humanoid.HealthChanged:Connect(function(newHealth)
+                        if newHealth < humanoid.MaxHealth then
+                            task.wait(0.1)
+                            humanoid.Health = humanoid.MaxHealth
+                        end
+                    end)
+
+                    for _, connection in pairs(getconnections(humanoid.Touched)) do
+                        connection:Disable()
+                    end
+
+                    Window:Notification("Invincible", "You are now immune to animals and damage!")
+                end
+            end
+        else
+            Window:Notification("Invincible", "Disabled")
+        end
+    end
+})
+
+-- Movement Section
+local MoveSection = ExploitsTab:Section({ Title = "Movement" })
+MoveSection:Slider({
+    Title = "🎯 WalkSpeed",
+    Min = 16,
+    Max = 200,
+    Default = 16,
+    Callback = function(val)
+        if Player.Character and Player.Character:FindFirstChildOfClass("Humanoid") then
+            Player.Character.Humanoid.WalkSpeed = val
+        end
+    end
+})
+
+MoveSection:Slider({
+    Title = "🦘 JumpPower",
+    Min = 50,
+    Max = 200,
+    Default = 50,
+    Callback = function(val)
+        if Player.Character and Player.Character:FindFirstChildOfClass("Humanoid") then
+            Player.Character.Humanoid.JumpPower = val
+        end
+    end
+})
+
+-- Fly
+local FlySection = ExploitsTab:Section({ Title = "Fly" })
+local flying = false
+local flyConnection = nil
+FlySection:Toggle({
+    Title = "🚀 Fly",
+    Default = false,
+    Callback = function(val)
+        flying = val
+        local character = Player.Character
+        if flying then
+            if character and character:FindFirstChild("HumanoidRootPart") then
+                local bodyVelocity = Instance.new("BodyVelocity")
+                bodyVelocity.Velocity = Vector3.new(0,0,0)
+                bodyVelocity.MaxForce = Vector3.new(4000,4000,4000)
+                bodyVelocity.Parent = character.HumanoidRootPart
+
+                flyConnection = RunService.Heartbeat:Connect(function()
+                    if flying and character and character.HumanoidRootPart then
+                        character.HumanoidRootPart.Velocity = Vector3.new(0,0,0)
+                    end
+                end)
+
+                Window:Notification("Fly", "Enabled - Use spacebar and control to fly!")
+            end
+        else
+            if flyConnection then flyConnection:Disconnect() end
+            Window:Notification("Fly", "Disabled")
+        end
+    end
+})
+
+-- NoClip
+local NoClipSection = ExploitsTab:Section({ Title = "NoClip" })
+local noclip = false
+local noclipConnection = nil
+NoClipSection:Toggle({
+    Title = "🚀 NoClip",
+    Default = false,
+    Callback = function(val)
+        noclip = val
+        if noclip then
+            noclipConnection = RunService.Stepped:Connect(function()
+                if Player.Character then
+                    for _, part in pairs(Player.Character:GetDescendants()) do
+                        if part:IsA("BasePart") then part.CanCollide = false end
+                    end
+                end
+            end)
+            Window:Notification("NoClip", "Enabled - Walk through walls!")
+        else
+            if noclipConnection then
+                noclipConnection:Disconnect()
+                noclipConnection = nil
+            end
+            Window:Notification("NoClip", "Disabled")
+        end
+    end
+})
+
+-- Infinite Jump
+ExploitsTab:Toggle({
+    Title = "🔄 Infinite Jump",
+    Default = false,
+    Callback = function(val)
+        getgenv().InfiniteJump = val
+        if val then
+            Window:Notification("Infinite Jump", "Enabled - Jump infinitely!")
+        else
+            Window:Notification("Infinite Jump", "Disabled")
+        end
+    end
+})
+
+-- =============================================
+-- INITIALIZATION
+-- =============================================
+getgenv().SelectedItem = nil
+getgenv().InfiniteJump = false
+
+task.spawn(function()
+    task.wait(3)
+    print("🎮 ZEN'S 99 NIGHTS SCRIPT LOADED!")
+    Window:Notification("Script Loaded", "Zen's 99 Nights Script is ready!")
+end)
+
+print("📁 Tabs: Visuals, Exploits")
+print("🎯 Features: Spawner, Teleport Items, Invincible, Fly, NoClip")
